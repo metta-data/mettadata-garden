@@ -1,0 +1,10 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { PageManager } from "../../components/admin/PageManager";
+
+export const prerender = false;
+---
+
+<AdminLayout title="Pages" active="pages">
+  <PageManager client:load />
+</AdminLayout>

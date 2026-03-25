@@ -1,0 +1,54 @@
+import { defineMiddleware } from "astro:middleware";
+import { auth } from "./lib/auth";
+import { resolveUser, upsertUserOnLogin } from "./lib/roles";
+import { getGardenByCustomDomain } from "./lib/gardens";
+
+export const onRequest = defineMiddleware(async (context, next) => {
+  context.locals.user = null;
+  context.locals.gardenDomain = undefined;
+
+  try {
+    const cookieHeader = context.request.headers.get("cookie");
+    if (cookieHeader) {
+      const session = await auth.api.getSession({
+        headers: context.request.headers,
+      });
+
+      if (session?.user) {
+        upsertUserOnLogin({
+          email: session.user.email,
+          name: session.user.name,
+          image: session.user.image ?? undefined,
+        });
+
+        context.locals.user = resolveUser({
+          email: session.user.email,
+          name: session.user.name,
+          image: session.user.image ?? undefined,
+        });
+      }
+    }
+  } catch {
+    // Session resolution failed — continue as anonymous
+  }
+
+  // Custom domain detection: rewrite requests to the appropriate garden
+  const host = context.request.headers.get("host")?.split(":")[0];
+  const mainDomain = import.meta.env.MAIN_DOMAIN || "localhost";
+
+  if (host && host !== mainDomain && host !== "localhost") {
+    const garden = getGardenByCustomDomain(host);
+    if (garden) {
+      context.locals.gardenDomain = garden;
+      const pathname = new URL(context.request.url).pathname;
+
+      if (pathname === "/" || pathname === "") {
+        return context.rewrite(`/garden?scope=${garden.name}`);
+      } else if (!pathname.startsWith("/api/") && !pathname.startsWith("/_")) {
+        return context.rewrite(`/garden/${garden.name}${pathname}`);
+      }
+    }
+  }
+
+  return next();
+});

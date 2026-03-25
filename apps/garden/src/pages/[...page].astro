@@ -1,0 +1,22 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { getPublicPage } from "../lib/pages";
+
+export const prerender = false;
+
+const slug = Astro.params.page;
+if (!slug) {
+  return new Response("Not found", { status: 404 });
+}
+
+const page = getPublicPage(slug);
+if (!page) {
+  return new Response("Not found", { status: 404 });
+}
+---
+
+<BaseLayout title={page.meta.title} description={page.meta.description}>
+  <article class="max-w-3xl mx-auto prose">
+    <Fragment set:html={page.html} />
+  </article>
+</BaseLayout>

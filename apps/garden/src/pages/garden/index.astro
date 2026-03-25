@@ -1,0 +1,213 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import GardenSiteLayout from "../../layouts/GardenSiteLayout.astro";
+import GrowthStage from "../../components/garden/GrowthStage.astro";
+import GardenTag from "../../components/garden/GardenTag.astro";
+import { GardenSelector } from "../../components/garden/GardenSelector";
+import { Calendar } from "../../components/garden/Calendar";
+import { TodayButton } from "../../components/garden/TodayButton";
+import { getAllGardenNotes, isPublishable } from "../../lib/garden-collections";
+import { getPublicGardens, isValidGarden, getGardenByName } from "../../lib/gardens";
+
+export const prerender = false;
+
+const isCustomDomain = !!Astro.locals.gardenDomain;
+const gardenDomain = Astro.locals.gardenDomain;
+
+const scope = isCustomDomain ? gardenDomain!.name : (Astro.url.searchParams.get("scope") || undefined);
+const validScope = scope && isValidGarden(scope) && scope !== "private"
+  ? scope
+  : undefined;
+
+const publicGardens = getPublicGardens();
+const publicGardenNames = publicGardens.map((g) => g.name);
+
+const allNoteEntries = await getAllGardenNotes();
+
+const publicNotes = allNoteEntries
+  .filter((n) => isPublishable(n.garden, n.entry))
+  .sort((a, b) => b.entry.data.updated.getTime() - a.entry.data.updated.getTime());
+
+// If a scope is selected, filter to just that garden
+const visibleGardens = validScope ? [validScope] : publicGardenNames;
+const filteredNotes = validScope
+  ? publicNotes.filter((n) => n.garden === validScope)
+  : publicNotes;
+
+// Group by garden
+const byGarden: Record<string, typeof publicNotes> = {};
+for (const garden of visibleGardens) {
+  byGarden[garden] = filteredNotes.filter((n) => n.garden === garden);
+}
+
+// Build garden metadata lookup
+const gardenMeta = Object.fromEntries(publicGardens.map((g) => [g.name, g]));
+
+// Get current garden config for calendar/daily notes
+const scopedGarden = validScope ? getGardenByName(validScope) : null;
+const showCalendar = scopedGarden?.calendar_enabled;
+const showTodayButton = scopedGarden?.daily_notes_enabled;
+---
+
+{isCustomDomain && gardenDomain ? (
+  <GardenSiteLayout
+    title={gardenDomain.display_name}
+    gardenName={gardenDomain.name}
+    gardenIcon={gardenDomain.icon}
+    gardenDisplayName={gardenDomain.display_name}
+    description={gardenDomain.description || "Browse all notes"}
+  >
+    <Fragment set:html="" />
+    <div class="space-y-8">
+      <div>
+        <div class="flex items-center gap-3 mb-2">
+          <p class="text-[var(--color-text-secondary)]">
+            {filteredNotes.length} notes
+          </p>
+          {showTodayButton && validScope && (
+            <TodayButton garden={validScope} client:load />
+          )}
+        </div>
+      </div>
+
+      {showCalendar && validScope && scopedGarden && (
+        <Calendar
+          garden={validScope}
+          dailyNotesEnabled={!!scopedGarden.daily_notes_enabled}
+          dailyNotesFolder={scopedGarden.daily_notes_folder || "journal"}
+          client:load
+        />
+      )}
+
+      {visibleGardens.map((gardenName) => {
+        const notes = byGarden[gardenName];
+        if (!notes || notes.length === 0) return null;
+        return (
+          <section>
+            <div class="grid gap-2">
+              {notes.map((note) => (
+                <a
+                  href={`/${note.noteSlug}`}
+                  class="flex items-center gap-3 rounded-lg border border-[var(--color-border)] px-4 py-3 hover:bg-[var(--color-surface-hover)] transition-colors"
+                >
+                  <GrowthStage stage={note.entry.data.stage} />
+                  <div class="flex-1 min-w-0">
+                    <span class="font-medium">{note.entry.data.title}</span>
+                    {note.entry.data.description && (
+                      <p class="text-sm text-[var(--color-text-secondary)] truncate">
+                        {note.entry.data.description}
+                      </p>
+                    )}
+                  </div>
+                  <time
+                    class="text-xs text-[var(--color-text-muted)] whitespace-nowrap"
+                    datetime={note.entry.data.updated.toISOString()}
+                  >
+                    {note.entry.data.updated.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </time>
+                </a>
+              ))}
+            </div>
+          </section>
+        );
+      })}
+
+      {filteredNotes.length === 0 && (
+        <div class="text-center py-12 text-[var(--color-text-muted)]">
+          <p>No notes in this garden yet.</p>
+        </div>
+      )}
+    </div>
+  </GardenSiteLayout>
+) : (
+  <BaseLayout title={validScope ? `${gardenMeta[validScope]?.display_name || validScope} Garden` : "Garden"} description="Browse all notes in the digital garden">
+    <div class="space-y-8">
+      <div>
+        <div class="flex items-center justify-between flex-wrap gap-4 mb-2">
+          <h1 class="text-3xl font-bold">Garden</h1>
+          <GardenSelector
+            current={validScope}
+            gardens={publicGardens.map((g) => ({ name: g.name, display_name: g.display_name, icon: g.icon }))}
+            client:load
+          />
+        </div>
+        <div class="flex items-center gap-3">
+          <p class="text-[var(--color-text-secondary)]">
+            {filteredNotes.length} notes{validScope ? ` in ${gardenMeta[validScope]?.display_name || validScope}` : ` growing across ${publicGardenNames.length} gardens`}
+          </p>
+          {showTodayButton && validScope && (
+            <TodayButton garden={validScope} client:load />
+          )}
+        </div>
+      </div>
+
+      {showCalendar && validScope && scopedGarden && (
+        <Calendar
+          garden={validScope}
+          dailyNotesEnabled={!!scopedGarden.daily_notes_enabled}
+          dailyNotesFolder={scopedGarden.daily_notes_folder || "journal"}
+          client:load
+        />
+      )}
+
+      {visibleGardens.map((gardenName) => {
+        const notes = byGarden[gardenName];
+        const meta = gardenMeta[gardenName];
+        if (!notes || notes.length === 0) return null;
+        return (
+          <section>
+            {!validScope && (
+              <h2 class="text-xl font-semibold mb-3 capitalize flex items-center gap-2">
+                {meta?.icon && <span>{meta.icon}</span>}
+                <GardenTag garden={gardenName} />
+                <span>{meta?.display_name || gardenName}</span>
+                <span class="text-sm font-normal text-[var(--color-text-muted)]">
+                  ({notes.length})
+                </span>
+              </h2>
+            )}
+            <div class="grid gap-2">
+              {notes.map((note) => (
+                <a
+                  href={`/garden/${note.garden}/${note.noteSlug}`}
+                  class="flex items-center gap-3 rounded-lg border border-[var(--color-border)] px-4 py-3 hover:bg-[var(--color-surface-hover)] transition-colors"
+                >
+                  <GrowthStage stage={note.entry.data.stage} />
+                  <div class="flex-1 min-w-0">
+                    <span class="font-medium">{note.entry.data.title}</span>
+                    {note.entry.data.description && (
+                      <p class="text-sm text-[var(--color-text-secondary)] truncate">
+                        {note.entry.data.description}
+                      </p>
+                    )}
+                  </div>
+                  <time
+                    class="text-xs text-[var(--color-text-muted)] whitespace-nowrap"
+                    datetime={note.entry.data.updated.toISOString()}
+                  >
+                    {note.entry.data.updated.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </time>
+                </a>
+              ))}
+            </div>
+          </section>
+        );
+      })}
+
+      {filteredNotes.length === 0 && (
+        <div class="text-center py-12 text-[var(--color-text-muted)]">
+          <p>No notes in this garden yet.</p>
+          <a href="/new" class="text-[var(--color-accent)] hover:underline mt-2 inline-block">
+            Create one &rarr;
+          </a>
+        </div>
+      )}
+    </div>
+  </BaseLayout>
+)}

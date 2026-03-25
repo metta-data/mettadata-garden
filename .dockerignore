@@ -1,0 +1,11 @@
+node_modules
+.git
+.env
+.env.*
+!.env.example
+*.db
+*.db-shm
+*.db-wal
+dist
+.turbo
+.astro

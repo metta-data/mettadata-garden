@@ -1,0 +1,252 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import GardenSiteLayout from "../../layouts/GardenSiteLayout.astro";
+import { getCollection, getEntry, render } from "astro:content";
+import GrowthStage from "../../components/garden/GrowthStage.astro";
+import GardenTag from "../../components/garden/GardenTag.astro";
+import BackLinks from "../../components/garden/BackLinks.astro";
+import { SeedButton } from "../../components/garden/SeedButton";
+import { InlineEditor } from "../../components/garden/InlineEditor";
+import { isValidGarden } from "../../lib/gardens";
+import { getAllGardenNotes } from "../../lib/garden-collections";
+
+export const prerender = false;
+
+const slug = Astro.params.slug;
+if (!slug) {
+  return Astro.redirect("/garden");
+}
+
+const segments = slug.split("/");
+
+// Check if first segment is a valid garden
+let garden: string | undefined;
+let noteSlug: string;
+
+if (segments.length >= 2 && isValidGarden(segments[0])) {
+  garden = segments[0];
+  noteSlug = segments.slice(1).join("/");
+} else {
+  // Legacy URL: single slug without garden prefix
+  // Search all collections for this note and redirect
+  const allNotes = await getAllGardenNotes();
+  const match = allNotes.find(
+    (n) => n.noteSlug === slug || n.entry.id.endsWith(`/${slug}`)
+  );
+  if (match) {
+    return Astro.redirect(`/garden/${match.garden}/${match.noteSlug}`);
+  }
+  return new Response("Note not found", { status: 404 });
+}
+
+// Fetch note from the unified gardens collection
+// Entry ID format: "garden/notes/slug"
+const entryId = `${garden}/notes/${noteSlug}`;
+const note = await getEntry("gardens", entryId);
+
+if (!note) {
+  return new Response("Note not found", { status: 404 });
+}
+
+// For private garden, check auth
+if (garden === "private") {
+  const { auth } = await import("../../lib/auth");
+  const { resolveUser } = await import("../../lib/roles");
+  const session = await auth.api.getSession({ headers: Astro.request.headers });
+  if (!session?.user) {
+    return Astro.redirect("/");
+  }
+  const user = resolveUser({
+    email: session.user.email,
+    name: session.user.name,
+    image: session.user.image ?? undefined,
+  });
+  if (!user) {
+    return new Response("No access", { status: 403 });
+  }
+}
+
+const { Content } = await render(note);
+const qualifiedNoteId = `${garden}/${note.id}`;
+
+// Auto-generate description from body if not set
+const description = note.data.description || autoDescription(note.body || "");
+
+const isCustomDomain = !!Astro.locals.gardenDomain;
+const gardenDomain = Astro.locals.gardenDomain;
+
+function autoDescription(markdown: string): string {
+  const plain = markdown
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*|__/g, "")
+    .replace(/\*|_/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\[\[(?:\w+\/)?([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, t, d) => d || t)
+    .replace(/!\[.*?\]\(.*?\)/g, "")
+    .replace(/`{1,3}[^`]*`{1,3}/g, "")
+    .replace(/\n+/g, " ")
+    .trim();
+  return plain.slice(0, 160);
+}
+---
+
+{isCustomDomain && gardenDomain ? (
+  <GardenSiteLayout
+    title={note.data.title}
+    description={description}
+    gardenName={gardenDomain.name}
+    gardenIcon={gardenDomain.icon}
+    gardenDisplayName={gardenDomain.display_name}
+  >
+    <article class="max-w-3xl mx-auto">
+      <header class="mb-8">
+        <div class="flex items-center gap-2 mb-3">
+          <GrowthStage stage={note.data.stage} />
+        </div>
+        <h1 class="text-3xl font-bold mb-2">{note.data.title}</h1>
+        {description && (
+          <p class="text-lg text-[var(--color-text-secondary)]">
+            {description}
+          </p>
+        )}
+        <div class="flex items-center gap-4 mt-3 text-sm text-[var(--color-text-muted)]">
+          <span>
+            Created{" "}
+            {note.data.created.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </span>
+          <span>
+            Updated{" "}
+            {note.data.updated.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </span>
+        </div>
+        {note.data.tags.length > 0 && (
+          <div class="flex gap-1.5 mt-3">
+            {note.data.tags.map((tag) => (
+              <span class="rounded-md bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs text-[var(--color-text-secondary)]">
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </header>
+
+      <SeedButton
+        noteSlug={`${garden}/${noteSlug}`}
+        noteTitle={note.data.title}
+        isSeeded={note.data.seeded}
+        garden={garden}
+        client:load
+      />
+
+      <div class="prose">
+        <Content />
+      </div>
+
+      <InlineEditor
+        noteSlug={`${garden}/${noteSlug}`}
+        noteContent={note.body || ""}
+        garden={garden}
+        noteFrontmatter={{
+          title: note.data.title,
+          aliases: note.data.aliases || [],
+          stage: note.data.stage,
+          tags: note.data.tags || [],
+          created: note.data.created?.toISOString?.()?.split("T")[0] || "",
+          updated: note.data.updated?.toISOString?.()?.split("T")[0] || "",
+          publish: note.data.publish,
+          description: note.data.description || "",
+          seeded: note.data.seeded,
+          ...(note.data.seedSource ? { seedSource: note.data.seedSource } : {}),
+        }}
+        client:load
+      />
+
+      <BackLinks noteId={qualifiedNoteId} />
+    </article>
+  </GardenSiteLayout>
+) : (
+  <BaseLayout title={note.data.title} description={description}>
+    <article class="max-w-3xl mx-auto">
+      <header class="mb-8">
+        <div class="flex items-center gap-2 mb-3">
+          <GrowthStage stage={note.data.stage} />
+          {garden !== "private" && <GardenTag garden={garden} />}
+        </div>
+        <h1 class="text-3xl font-bold mb-2">{note.data.title}</h1>
+        {description && (
+          <p class="text-lg text-[var(--color-text-secondary)]">
+            {description}
+          </p>
+        )}
+        <div class="flex items-center gap-4 mt-3 text-sm text-[var(--color-text-muted)]">
+          <span>
+            Created{" "}
+            {note.data.created.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </span>
+          <span>
+            Updated{" "}
+            {note.data.updated.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </span>
+        </div>
+        {note.data.tags.length > 0 && (
+          <div class="flex gap-1.5 mt-3">
+            {note.data.tags.map((tag) => (
+              <span class="rounded-md bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs text-[var(--color-text-secondary)]">
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </header>
+
+      <SeedButton
+        noteSlug={`${garden}/${noteSlug}`}
+        noteTitle={note.data.title}
+        isSeeded={note.data.seeded}
+        garden={garden}
+        client:load
+      />
+
+      <div class="prose">
+        <Content />
+      </div>
+
+      <InlineEditor
+        noteSlug={`${garden}/${noteSlug}`}
+        noteContent={note.body || ""}
+        garden={garden}
+        noteFrontmatter={{
+          title: note.data.title,
+          aliases: note.data.aliases || [],
+          stage: note.data.stage,
+          tags: note.data.tags || [],
+          created: note.data.created?.toISOString?.()?.split("T")[0] || "",
+          updated: note.data.updated?.toISOString?.()?.split("T")[0] || "",
+          publish: note.data.publish,
+          description: note.data.description || "",
+          seeded: note.data.seeded,
+          ...(note.data.seedSource ? { seedSource: note.data.seedSource } : {}),
+        }}
+        client:load
+      />
+
+      <BackLinks noteId={qualifiedNoteId} />
+    </article>
+  </BaseLayout>
+)}

@@ -1,0 +1,146 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { getAllGardens, getGardenNoteCount } from "../../lib/gardens";
+import { getAllGardenNotes } from "../../lib/garden-collections";
+import { getCollection } from "astro:content";
+import db from "../../lib/db";
+
+export const prerender = false;
+
+const gardens = getAllGardens();
+const allNotes = await getAllGardenNotes();
+const blogPosts = await getCollection("blog");
+const userCount = (db.prepare("SELECT COUNT(*) as count FROM users").get() as any).count;
+
+const totalNotes = allNotes.length;
+const publishedNotes = allNotes.filter((n) => n.garden !== "private" && n.entry.data.publish).length;
+
+const gardenStats = gardens.map((g) => ({
+  ...g,
+  noteCount: getGardenNoteCount(g.name),
+}));
+
+const recentNotes = allNotes
+  .sort((a, b) => b.entry.data.updated.getTime() - a.entry.data.updated.getTime())
+  .slice(0, 8);
+---
+
+<AdminLayout title="Overview" active="overview">
+  <h1 class="text-2xl font-bold mb-6">Dashboard</h1>
+
+  <!-- Stats cards -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+    <div class="rounded-lg border border-[var(--color-border)] p-4">
+      <p class="text-2xl font-bold">{totalNotes}</p>
+      <p class="text-sm text-[var(--color-text-secondary)]">Total Notes</p>
+    </div>
+    <div class="rounded-lg border border-[var(--color-border)] p-4">
+      <p class="text-2xl font-bold">{publishedNotes}</p>
+      <p class="text-sm text-[var(--color-text-secondary)]">Published</p>
+    </div>
+    <div class="rounded-lg border border-[var(--color-border)] p-4">
+      <p class="text-2xl font-bold">{blogPosts.length}</p>
+      <p class="text-sm text-[var(--color-text-secondary)]">Blog Posts</p>
+    </div>
+    <div class="rounded-lg border border-[var(--color-border)] p-4">
+      <p class="text-2xl font-bold">{gardens.length}</p>
+      <p class="text-sm text-[var(--color-text-secondary)]">Gardens</p>
+    </div>
+    <div class="rounded-lg border border-[var(--color-border)] p-4">
+      <p class="text-2xl font-bold">{userCount}</p>
+      <p class="text-sm text-[var(--color-text-secondary)]">Users</p>
+    </div>
+  </div>
+
+  <!-- Gardens overview -->
+  <div class="grid md:grid-cols-2 gap-6">
+    <section>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Gardens</h2>
+        <a href="/admin/gardens" class="text-xs text-[var(--color-accent)] hover:underline">Manage &rarr;</a>
+      </div>
+      <div class="space-y-2">
+        {gardenStats.map((g) => (
+          <div class="flex items-center gap-3 rounded-lg border border-[var(--color-border)] px-4 py-3">
+            <span class="text-xl">{g.icon || "📁"}</span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-medium text-sm">{g.display_name}</span>
+                {g.published ? (
+                  <span class="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1.5 py-0.5 rounded">
+                    Published
+                  </span>
+                ) : (
+                  <span class="text-[10px] bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                    Hidden
+                  </span>
+                )}
+              </div>
+            </div>
+            <span class="text-xs text-[var(--color-text-muted)]">{g.noteCount} notes</span>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Recent Notes</h2>
+        <a href="/garden" class="text-xs text-[var(--color-accent)] hover:underline">View all &rarr;</a>
+      </div>
+      <div class="space-y-1">
+        {recentNotes.map((note) => (
+          <a
+            href={`/garden/${note.garden}/${note.noteSlug}`}
+            class="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-[var(--color-surface-hover)] transition-colors"
+          >
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-xs text-[var(--color-text-muted)]">{note.garden}</span>
+              <span class="text-sm font-medium truncate">{note.entry.data.title}</span>
+            </div>
+            <time class="text-xs text-[var(--color-text-muted)] whitespace-nowrap ml-2">
+              {note.entry.data.updated.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            </time>
+          </a>
+        ))}
+      </div>
+    </section>
+  </div>
+
+  <!-- Quick links -->
+  <section class="mt-8 pt-6 border-t border-[var(--color-border)]">
+    <h2 class="text-lg font-semibold mb-3">Quick Actions</h2>
+    <div class="flex flex-wrap gap-3">
+      <a
+        href="/new"
+        class="rounded-lg border border-[var(--color-border)] px-4 py-2.5 text-sm hover:bg-[var(--color-surface-hover)] transition-colors"
+      >
+        + New Note
+      </a>
+      <a
+        href="/blog/new"
+        class="rounded-lg border border-[var(--color-border)] px-4 py-2.5 text-sm hover:bg-[var(--color-surface-hover)] transition-colors"
+      >
+        + New Post
+      </a>
+      <a
+        href="/admin/gardens"
+        class="rounded-lg border border-[var(--color-border)] px-4 py-2.5 text-sm hover:bg-[var(--color-surface-hover)] transition-colors"
+      >
+        + New Garden
+      </a>
+      <a
+        href="/admin/users"
+        class="rounded-lg border border-[var(--color-border)] px-4 py-2.5 text-sm hover:bg-[var(--color-surface-hover)] transition-colors"
+      >
+        Manage Users
+      </a>
+      <a
+        href="/admin/templates"
+        class="rounded-lg border border-[var(--color-border)] px-4 py-2.5 text-sm hover:bg-[var(--color-surface-hover)] transition-colors"
+      >
+        Manage Templates
+      </a>
+    </div>
+  </section>
+</AdminLayout>

@@ -1,0 +1,25 @@
+---
+interface Props {
+  stage: "seed" | "sprout" | "sapling" | "evergreen";
+}
+
+const { stage } = Astro.props;
+
+const config = {
+  seed: { icon: "\uD83C\uDF31", label: "Seed", color: "var(--color-seed)", description: "Just planted — an initial idea" },
+  sprout: { icon: "\uD83C\uDF3F", label: "Sprout", color: "var(--color-sprout)", description: "Growing — developing structure" },
+  sapling: { icon: "\uD83C\uDF33", label: "Sapling", color: "var(--color-sapling)", description: "Maturing — mostly formed" },
+  evergreen: { icon: "\uD83C\uDF32", label: "Evergreen", color: "var(--color-evergreen)", description: "Established — reliable reference" },
+};
+
+const { icon, label, color, description } = config[stage];
+---
+
+<span
+  class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+  style={`background-color: ${color}20; color: ${color};`}
+  title={description}
+>
+  <span>{icon}</span>
+  {label}
+</span>

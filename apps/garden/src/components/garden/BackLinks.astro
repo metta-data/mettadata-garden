@@ -1,0 +1,52 @@
+---
+import { buildLinkGraph } from "../../lib/garden-graph";
+import { getAllGardenNotes, isPublishable } from "../../lib/garden-collections";
+
+interface Props {
+  noteId: string; // garden-qualified: "garden/noteId"
+}
+
+const { noteId } = Astro.props;
+
+const graph = await buildLinkGraph();
+const entry = graph[noteId];
+const backlinks = entry?.incoming || [];
+
+// Get note data for backlinks
+const allNotes = await getAllGardenNotes();
+const backlinkNotes = backlinks
+  .map((id) => {
+    // id is "garden/noteId"
+    const [garden, ...rest] = id.split("/");
+    const entryId = rest.join("/");
+    return allNotes.find(
+      (n) => n.garden === garden && n.entry.id === entryId
+    );
+  })
+  .filter((n) => n && isPublishable(n.garden, n.entry));
+---
+
+{
+  backlinkNotes.length > 0 && (
+    <aside class="mt-8 rounded-lg border border-[var(--color-border)] p-4">
+      <h3 class="mb-3 text-sm font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide">
+        Linked from
+      </h3>
+      <ul class="space-y-1">
+        {backlinkNotes.map(
+          (note) =>
+            note && (
+              <li>
+                <a
+                  href={`/garden/${note.garden}/${note.entry.id}`}
+                  class="text-sm text-[var(--color-accent)] hover:underline"
+                >
+                  {note.entry.data.title}
+                </a>
+              </li>
+            )
+        )}
+      </ul>
+    </aside>
+  )
+}

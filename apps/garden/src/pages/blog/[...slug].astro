@@ -1,0 +1,163 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection, getEntry, render } from "astro:content";
+import { getAllGardenNotes, isPublishable } from "../../lib/garden-collections";
+import { BlogInlineEditor } from "../../components/blog/BlogInlineEditor";
+import { auth } from "../../lib/auth";
+import { resolveUser } from "../../lib/roles";
+import fs from "node:fs";
+import path from "node:path";
+import { BLOG_DIR } from "../../lib/paths";
+
+export const prerender = false;
+
+const slug = Astro.params.slug;
+if (!slug) {
+  return Astro.redirect("/blog");
+}
+
+// Check auth for draft access
+const session = await auth.api.getSession({ headers: Astro.request.headers });
+const user = session?.user
+  ? resolveUser({
+      email: session.user.email,
+      name: session.user.name,
+      image: session.user.image ?? undefined,
+    })
+  : null;
+const isAdmin = user?.role === "admin" || user?.role === "steward";
+
+const post = await getEntry("blog", slug);
+if (!post) {
+  return new Response("Post not found", { status: 404 });
+}
+
+// Only show drafts to admins
+if (post.data.draft && !isAdmin) {
+  return new Response("Post not found", { status: 404 });
+}
+
+const { Content } = await render(post);
+
+// Get referenced garden notes
+const allNotes = await getAllGardenNotes();
+const referencedNotes = post.data.gardenRefs
+  .map((ref) => {
+    const match = allNotes.find(
+      (n) =>
+        `${n.garden}/${n.noteSlug}` === ref ||
+        n.noteSlug === ref ||
+        n.entry.data.title.toLowerCase() === ref.toLowerCase()
+    );
+    return match;
+  })
+  .filter((n) => n && isPublishable(n.garden, n.entry));
+
+// Read raw markdown for the inline editor
+let rawContent = "";
+let rawFrontmatter: Record<string, any> = {};
+if (isAdmin) {
+  try {
+    const filePath = path.join(BLOG_DIR, `${slug}.md`);
+    const fileContent = fs.readFileSync(filePath, "utf-8");
+    const fmMatch = fileContent.match(/^---\n([\s\S]*?)\n---/);
+    if (fmMatch) {
+      rawContent = fileContent.replace(/^---\n[\s\S]*?\n---/, "").trim();
+      // Parse frontmatter
+      for (const line of fmMatch[1].split("\n")) {
+        const m = line.match(/^(\w[\w-]*):\s*(.*)/);
+        if (!m) continue;
+        const [, key, rawValue] = m;
+        const value = rawValue.trim();
+        if (value.startsWith("[") && value.endsWith("]")) {
+          const inner = value.slice(1, -1);
+          rawFrontmatter[key] = inner.trim() === "" ? [] : inner.split(",").map((v) => v.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
+        } else if (value === "true") {
+          rawFrontmatter[key] = true;
+        } else if (value === "false") {
+          rawFrontmatter[key] = false;
+        } else if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+          rawFrontmatter[key] = value.slice(1, -1);
+        } else {
+          rawFrontmatter[key] = value;
+        }
+      }
+    }
+  } catch {}
+}
+---
+
+<BaseLayout title={post.data.title} description={post.data.description}>
+  <article class="max-w-3xl mx-auto">
+    {post.data.draft && (
+      <div class="mb-4 rounded-lg border border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 px-4 py-2 text-sm text-yellow-800 dark:text-yellow-200">
+        This post is a draft and is only visible to admins.
+      </div>
+    )}
+
+    <header class="mb-8">
+      <h1 class="text-3xl font-bold mb-2">{post.data.title}</h1>
+      <p class="text-lg text-[var(--color-text-secondary)]">
+        {post.data.description}
+      </p>
+      <div class="flex items-center gap-3 mt-3 text-sm text-[var(--color-text-muted)]">
+        <time datetime={post.data.date.toISOString()}>
+          {post.data.date.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </time>
+        <div class="flex gap-1.5">
+          {post.data.tags.map((tag) => (
+            <span class="rounded-md bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs">
+              #{tag}
+            </span>
+          ))}
+        </div>
+      </div>
+    </header>
+
+    <div class="prose">
+      <Content />
+    </div>
+
+    {referencedNotes.length > 0 && (
+      <aside class="mt-10 rounded-lg border border-[var(--color-border)] p-5">
+        <h3 class="text-sm font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide mb-3">
+          Referenced Garden Notes
+        </h3>
+        <ul class="space-y-2">
+          {referencedNotes.map(
+            (note) =>
+              note && (
+                <li>
+                  <a
+                    href={`/garden/${note.garden}/${note.noteSlug}`}
+                    class="text-[var(--color-accent)] hover:underline"
+                  >
+                    {note.entry.data.title}
+                  </a>
+                  {note.entry.data.description && (
+                    <span class="text-sm text-[var(--color-text-muted)]">
+                      {" "}
+                      &mdash; {note.entry.data.description}
+                    </span>
+                  )}
+                </li>
+              )
+          )}
+        </ul>
+      </aside>
+    )}
+
+    {isAdmin && (
+      <BlogInlineEditor
+        client:load
+        postSlug={slug}
+        postContent={rawContent}
+        postFrontmatter={rawFrontmatter}
+      />
+    )}
+  </article>
+</BaseLayout>

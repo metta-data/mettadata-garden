@@ -1,0 +1,22 @@
+{
+  "name": "@mettadata/remark-garden",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "mdast-util-wiki-link": "^0.0.2",
+    "micromark-extension-wiki-link": "^0.0.4",
+    "unified": "^11.0.0",
+    "unist-util-visit": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/mdast": "^4.0.0",
+    "typescript": "^5.7.0"
+  }
+}

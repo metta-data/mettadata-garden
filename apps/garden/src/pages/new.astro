@@ -1,0 +1,10 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { NoteEditor } from "../components/editor/NoteEditor";
+
+export const prerender = false;
+---
+
+<BaseLayout title="New Note">
+  <NoteEditor client:load />
+</BaseLayout>

@@ -1,0 +1,101 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+import GrowthStage from "../components/garden/GrowthStage.astro";
+import GardenTag from "../components/garden/GardenTag.astro";
+import { getAllGardenNotes, isPublishable } from "../lib/garden-collections";
+import { getPublicGardenNames } from "../lib/gardens";
+
+const allNotes = await getAllGardenNotes();
+const gardenNotes = allNotes
+  .filter((n) => isPublishable(n.garden, n.entry))
+  .sort((a, b) => b.entry.data.updated.getTime() - a.entry.data.updated.getTime())
+  .slice(0, 5);
+
+const blogPosts = (await getCollection("blog"))
+  .filter((post) => !post.data.draft)
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
+  .slice(0, 3);
+---
+
+<BaseLayout title="Home">
+  <div class="space-y-12">
+    <section class="text-center py-8">
+      <h1 class="text-4xl font-bold mb-4">Mettadata Garden</h1>
+      <p class="text-lg text-[var(--color-text-secondary)] max-w-2xl mx-auto">
+        A digital garden where ideas are planted, nurtured, and interconnected.
+        Browse notes across different gardens or read the blog.
+      </p>
+    </section>
+
+    <section>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-semibold">Recently Updated Notes</h2>
+        <a href="/garden" class="text-sm text-[var(--color-accent)] hover:underline">
+          View all &rarr;
+        </a>
+      </div>
+      <div class="grid gap-3">
+        {gardenNotes.map((note) => (
+          <a
+            href={`/garden/${note.garden}/${note.noteSlug}`}
+            class="flex items-center justify-between rounded-lg border border-[var(--color-border)] p-4 hover:bg-[var(--color-surface-hover)] transition-colors"
+          >
+            <div class="flex items-center gap-3">
+              <GrowthStage stage={note.entry.data.stage} />
+              <div>
+                <span class="font-medium">{note.entry.data.title}</span>
+                {note.entry.data.description && (
+                  <p class="text-sm text-[var(--color-text-secondary)] mt-0.5">
+                    {note.entry.data.description}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <GardenTag garden={note.garden} />
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-semibold">Latest Posts</h2>
+        <a href="/blog" class="text-sm text-[var(--color-accent)] hover:underline">
+          View all &rarr;
+        </a>
+      </div>
+      <div class="grid gap-4">
+        {blogPosts.map((post) => (
+          <a
+            href={`/blog/${post.id}`}
+            class="block rounded-lg border border-[var(--color-border)] p-5 hover:bg-[var(--color-surface-hover)] transition-colors"
+          >
+            <h3 class="text-lg font-medium mb-1">{post.data.title}</h3>
+            <p class="text-sm text-[var(--color-text-secondary)] mb-2">
+              {post.data.description}
+            </p>
+            <div class="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
+              <time datetime={post.data.date.toISOString()}>
+                {post.data.date.toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </time>
+              <div class="flex gap-1">
+                {post.data.tags.map((tag) => (
+                  <span class="rounded bg-[var(--color-bg-secondary)] px-1.5 py-0.5">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  </div>
+</BaseLayout>

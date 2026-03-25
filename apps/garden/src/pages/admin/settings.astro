@@ -1,0 +1,10 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { SiteSettings } from "../../components/admin/SiteSettings";
+
+export const prerender = false;
+---
+
+<AdminLayout title="Settings" active="settings">
+  <SiteSettings client:load />
+</AdminLayout>

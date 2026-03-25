@@ -1,0 +1,60 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm --filter @mettadata/garden build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: garden-dist
+          path: apps/garden/dist/
+
+  # Uncomment and configure when ready to deploy to Hostinger or Railway
+  # deploy:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/download-artifact@v4
+  #       with:
+  #         name: garden-dist
+  #         path: dist/
+  #
+  #     # Option A: Deploy to Hostinger via SFTP
+  #     - name: Deploy to Hostinger
+  #       uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+  #       with:
+  #         server: ${{ secrets.FTP_SERVER }}
+  #         username: ${{ secrets.FTP_USERNAME }}
+  #         password: ${{ secrets.FTP_PASSWORD }}
+  #         local-dir: dist/
+  #         server-dir: public_html/
+  #
+  #     # Option B: Deploy to Railway (for hybrid SSR)
+  #     # - name: Deploy to Railway
+  #     #   uses: bervProject/railway-deploy@main
+  #     #   with:
+  #     #     railway_token: ${{ secrets.RAILWAY_TOKEN }}
+  #     #     service_name: mettadata-garden

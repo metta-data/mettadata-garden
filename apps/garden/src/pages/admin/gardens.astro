@@ -1,0 +1,10 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { GardenManager } from "../../components/admin/GardenManager";
+
+export const prerender = false;
+---
+
+<AdminLayout title="Gardens" active="gardens">
+  <GardenManager client:load />
+</AdminLayout>

@@ -1,0 +1,10 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { BlogEditor } from "../../components/blog/BlogEditor";
+
+export const prerender = false;
+---
+
+<BaseLayout title="New Blog Post">
+  <BlogEditor client:load />
+</BaseLayout>
