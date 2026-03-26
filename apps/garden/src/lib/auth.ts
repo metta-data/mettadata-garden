@@ -15,12 +15,12 @@ const db: Record<string, any[]> = {
 
 export const auth = betterAuth({
   basePath: "/api/auth",
-  baseURL: import.meta.env.BETTER_AUTH_URL || "http://localhost:4321",
-  secret: import.meta.env.BETTER_AUTH_SECRET || "dev-secret-change-me-in-production",
+  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:4321",
+  secret: process.env.BETTER_AUTH_SECRET || "dev-secret-change-me-in-production",
   socialProviders: {
     google: {
-      clientId: import.meta.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: import.meta.env.GOOGLE_CLIENT_SECRET || "",
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     },
   },
   database: memoryAdapter(db),

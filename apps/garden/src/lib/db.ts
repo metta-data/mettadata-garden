@@ -26,7 +26,7 @@ db.exec(`
 `);
 
 // Seed initial admin if ADMIN_EMAIL is set and no admins exist
-const adminEmail = import.meta.env?.ADMIN_EMAIL;
+const adminEmail = process.env.ADMIN_EMAIL;
 if (adminEmail) {
   const existing = db
     .prepare("SELECT id FROM users WHERE email = ?")

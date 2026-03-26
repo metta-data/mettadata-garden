@@ -34,7 +34,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   // Custom domain detection: rewrite requests to the appropriate garden
   const host = context.request.headers.get("host")?.split(":")[0];
-  const mainDomain = import.meta.env.MAIN_DOMAIN || "localhost";
+  const mainDomain = process.env.MAIN_DOMAIN || "localhost";
 
   if (host && host !== mainDomain && host !== "localhost") {
     const garden = getGardenByCustomDomain(host);
