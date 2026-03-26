@@ -21,7 +21,7 @@ COPY apps/garden/ apps/garden/
 RUN pnpm build
 
 # Create a standalone production bundle (no symlinks)
-RUN pnpm --filter @mettadata/garden deploy --prod /app/deployed
+RUN pnpm --filter @mettadata/garden deploy --prod --legacy /app/deployed
 
 # Copy built dist into the deployed bundle
 RUN cp -r /app/apps/garden/dist /app/deployed/dist
