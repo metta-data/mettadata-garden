@@ -20,6 +20,12 @@ COPY apps/garden/ apps/garden/
 
 RUN pnpm build
 
+# Create a standalone production bundle (no symlinks)
+RUN pnpm --filter @mettadata/garden deploy --prod /app/deployed
+
+# Copy built dist into the deployed bundle
+RUN cp -r /app/apps/garden/dist /app/deployed/dist
+
 # ── Production stage ─────────────────────────────────────────
 FROM node:22-slim AS production
 
@@ -29,15 +35,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Copy node_modules from build stage (pnpm symlink structure must be preserved)
-COPY --from=build /app/node_modules/ ./node_modules/
-COPY --from=build /app/apps/garden/node_modules/ ./apps/garden/node_modules/
-COPY --from=build /app/packages/content-model/node_modules/ ./packages/content-model/node_modules/
-COPY --from=build /app/packages/remark-garden/node_modules/ ./packages/remark-garden/node_modules/
-COPY --from=build /app/packages/ui/node_modules/ ./packages/ui/node_modules/
-
-# Copy the built Astro standalone server
-COPY --from=build /app/apps/garden/dist/ ./dist/
+# Copy the self-contained deployed bundle (deps + built output)
+COPY --from=build /app/deployed/ ./
 
 # Copy seed content (used by entrypoint on first boot)
 COPY --from=build /app/apps/garden/src/content/ ./seed-content/
