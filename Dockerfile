@@ -27,18 +27,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rsync \
   && rm -rf /var/lib/apt/lists/*
 
-RUN corepack enable && corepack prepare pnpm@10.15.0 --activate
-
 WORKDIR /app
 
-# Copy manifests and install production deps only
-COPY --from=build /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/package.json /app/turbo.json ./
-COPY --from=build /app/apps/garden/package.json apps/garden/
-COPY --from=build /app/packages/content-model/package.json packages/content-model/
-COPY --from=build /app/packages/remark-garden/package.json packages/remark-garden/
-COPY --from=build /app/packages/ui/package.json packages/ui/
-
-RUN pnpm install --frozen-lockfile --prod
+# Copy node_modules from build stage (pnpm symlink structure must be preserved)
+COPY --from=build /app/node_modules/ ./node_modules/
+COPY --from=build /app/apps/garden/node_modules/ ./apps/garden/node_modules/
+COPY --from=build /app/packages/content-model/node_modules/ ./packages/content-model/node_modules/
+COPY --from=build /app/packages/remark-garden/node_modules/ ./packages/remark-garden/node_modules/
+COPY --from=build /app/packages/ui/node_modules/ ./packages/ui/node_modules/
 
 # Copy the built Astro standalone server
 COPY --from=build /app/apps/garden/dist/ ./dist/
