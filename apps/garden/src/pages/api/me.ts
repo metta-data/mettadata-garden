@@ -1,28 +1,18 @@
 import type { APIRoute } from "astro";
-import { auth } from "../../lib/auth";
-import { resolveUser } from "../../lib/roles";
+import { getSessionUser } from "../../lib/auth";
+import { resolveUser, upsertUserOnLogin } from "../../lib/roles";
 
 export const prerender = false;
 
 export const GET: APIRoute = async (context) => {
   try {
-    const session = await auth.api.getSession({
-      headers: context.request.headers,
-    });
+    const user = await getSessionUser(
+      context.request.headers,
+      resolveUser,
+      upsertUserOnLogin,
+    );
 
-    if (!session?.user) {
-      return new Response(JSON.stringify({ user: null }), {
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    const resolved = resolveUser({
-      email: session.user.email,
-      name: session.user.name,
-      image: session.user.image ?? undefined,
-    });
-
-    return new Response(JSON.stringify({ user: resolved }), {
+    return new Response(JSON.stringify({ user: user ?? null }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch {

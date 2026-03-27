@@ -3,8 +3,8 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getCollection, getEntry, render } from "astro:content";
 import { getAllGardenNotes, isPublishable } from "../../lib/garden-collections";
 import { BlogInlineEditor } from "../../components/blog/BlogInlineEditor";
-import { auth } from "../../lib/auth";
-import { resolveUser } from "../../lib/roles";
+import { getSessionUser } from "../../lib/auth";
+import { resolveUser, upsertUserOnLogin } from "../../lib/roles";
 import fs from "node:fs";
 import path from "node:path";
 import { BLOG_DIR } from "../../lib/paths";
@@ -17,14 +17,7 @@ if (!slug) {
 }
 
 // Check auth for draft access
-const session = await auth.api.getSession({ headers: Astro.request.headers });
-const user = session?.user
-  ? resolveUser({
-      email: session.user.email,
-      name: session.user.name,
-      image: session.user.image ?? undefined,
-    })
-  : null;
+const user = await getSessionUser(Astro.request.headers, resolveUser, upsertUserOnLogin);
 const isAdmin = user?.role === "admin" || user?.role === "steward";
 
 const post = await getEntry("blog", slug);

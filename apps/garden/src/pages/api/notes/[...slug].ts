@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { auth } from "../../../lib/auth";
+import { getSessionUser } from "../../../lib/auth";
 import { resolveUser, canAccessGarden } from "../../../lib/roles";
 import { isValidGarden } from "../../../lib/gardens";
 import {
@@ -10,25 +10,14 @@ import {
 } from "../../../lib/frontmatter-utils";
 import fs from "node:fs";
 import path from "node:path";
-import { GARDENS_DIR } from "../../../lib/paths";
+import { GARDENS_DIR, NOTES_TRASH_DIR } from "../../../lib/paths";
 
 export const prerender = false;
 
 export const PUT: APIRoute = async (context) => {
-  const session = await auth.api.getSession({
-    headers: context.request.headers,
-  });
-  if (!session?.user) {
-    return json({ error: "Not authenticated" }, 401);
-  }
-
-  const user = resolveUser({
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image ?? undefined,
-  });
+  const user = await getSessionUser(context.request.headers, resolveUser);
   if (!user) {
-    return json({ error: "No role assigned" }, 403);
+    return json({ error: "Not authenticated" }, 401);
   }
 
   const slug = context.params.slug;
@@ -103,20 +92,9 @@ export const PUT: APIRoute = async (context) => {
 };
 
 export const GET: APIRoute = async (context) => {
-  const session = await auth.api.getSession({
-    headers: context.request.headers,
-  });
-  if (!session?.user) {
-    return json({ error: "Not authenticated" }, 401);
-  }
-
-  const user = resolveUser({
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image ?? undefined,
-  });
+  const user = await getSessionUser(context.request.headers, resolveUser);
   if (!user) {
-    return json({ error: "No role assigned" }, 403);
+    return json({ error: "Not authenticated" }, 401);
   }
 
   const slug = context.params.slug;
@@ -151,4 +129,41 @@ export const GET: APIRoute = async (context) => {
   const frontmatter = parseFrontmatter(extracted.raw);
 
   return json({ slug: noteSlug, garden, frontmatter, content: extracted.body });
+};
+
+export const DELETE: APIRoute = async (context) => {
+  const user = await getSessionUser(context.request.headers, resolveUser);
+  if (!user) {
+    return json({ error: "Not authenticated" }, 401);
+  }
+
+  const slug = context.params.slug;
+  if (!slug) {
+    return json({ error: "Missing slug" }, 400);
+  }
+
+  const segments = slug.split("/");
+  if (segments.length < 2 || !isValidGarden(segments[0])) {
+    return json({ error: "Invalid path — expected garden/slug" }, 400);
+  }
+
+  const garden = segments[0];
+  const noteSlug = segments.slice(1).join("/");
+
+  if (!canAccessGarden(user, garden)) {
+    return json({ error: `No permission for garden: ${garden}` }, 403);
+  }
+
+  const notePath = path.join(GARDENS_DIR, garden, "notes", `${noteSlug}.md`);
+  if (!fs.existsSync(notePath)) {
+    return json({ error: "Note not found" }, 404);
+  }
+
+  // Move to trash instead of permanent delete
+  const trashDir = path.join(NOTES_TRASH_DIR, garden);
+  fs.mkdirSync(trashDir, { recursive: true });
+  const trashPath = path.join(trashDir, `${noteSlug}.md`);
+  fs.renameSync(notePath, trashPath);
+
+  return json({ success: true, slug: noteSlug, garden });
 };

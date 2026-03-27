@@ -26,3 +26,7 @@ export const DATA_DIR =
 
 /** Full path to the SQLite database file */
 export const DB_PATH = path.join(DATA_DIR, "garden.db");
+
+/** Trash directories for soft-deleted content */
+export const NOTES_TRASH_DIR = path.join(GARDENS_DIR, ".trash");
+export const BLOG_TRASH_DIR = path.join(BLOG_DIR, ".trash");

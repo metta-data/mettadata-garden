@@ -50,19 +50,11 @@ if (!note) {
 
 // For private garden, check auth
 if (garden === "private") {
-  const { auth } = await import("../../lib/auth");
-  const { resolveUser } = await import("../../lib/roles");
-  const session = await auth.api.getSession({ headers: Astro.request.headers });
-  if (!session?.user) {
+  const { getSessionUser } = await import("../../lib/auth");
+  const { resolveUser, upsertUserOnLogin } = await import("../../lib/roles");
+  const privateUser = await getSessionUser(Astro.request.headers, resolveUser, upsertUserOnLogin);
+  if (!privateUser) {
     return Astro.redirect("/");
-  }
-  const user = resolveUser({
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image ?? undefined,
-  });
-  if (!user) {
-    return new Response("No access", { status: 403 });
   }
 }
 

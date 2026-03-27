@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { auth } from "../../../lib/auth";
+import { getSessionUser } from "../../../lib/auth";
 import { resolveUser } from "../../../lib/roles";
 import {
   extractFrontmatter,
@@ -10,7 +10,7 @@ import {
 } from "../../../lib/frontmatter-utils";
 import fs from "node:fs";
 import path from "node:path";
-import { BLOG_DIR } from "../../../lib/paths";
+import { BLOG_DIR, BLOG_TRASH_DIR } from "../../../lib/paths";
 
 export const prerender = false;
 
@@ -27,20 +27,9 @@ const BLOG_KEY_ORDER = [
 ];
 
 export const GET: APIRoute = async (context) => {
-  const session = await auth.api.getSession({
-    headers: context.request.headers,
-  });
-  if (!session?.user) {
-    return json({ error: "Not authenticated" }, 401);
-  }
-
-  const user = resolveUser({
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image ?? undefined,
-  });
+  const user = await getSessionUser(context.request.headers, resolveUser);
   if (!user) {
-    return json({ error: "No role assigned" }, 403);
+    return json({ error: "Not authenticated" }, 401);
   }
 
   const slug = context.params.slug;
@@ -65,18 +54,7 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const PUT: APIRoute = async (context) => {
-  const session = await auth.api.getSession({
-    headers: context.request.headers,
-  });
-  if (!session?.user) {
-    return json({ error: "Not authenticated" }, 401);
-  }
-
-  const user = resolveUser({
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image ?? undefined,
-  });
+  const user = await getSessionUser(context.request.headers, resolveUser);
   if (!user || (user.role !== "admin" && user.role !== "steward")) {
     return json({ error: "Insufficient permissions" }, 403);
   }
@@ -127,18 +105,7 @@ export const PUT: APIRoute = async (context) => {
 };
 
 export const DELETE: APIRoute = async (context) => {
-  const session = await auth.api.getSession({
-    headers: context.request.headers,
-  });
-  if (!session?.user) {
-    return json({ error: "Not authenticated" }, 401);
-  }
-
-  const user = resolveUser({
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image ?? undefined,
-  });
+  const user = await getSessionUser(context.request.headers, resolveUser);
   if (!user || user.role !== "admin") {
     return json({ error: "Admin only" }, 403);
   }
@@ -153,7 +120,10 @@ export const DELETE: APIRoute = async (context) => {
     return json({ error: "Post not found" }, 404);
   }
 
-  fs.unlinkSync(filePath);
+  // Move to trash instead of permanent delete
+  fs.mkdirSync(BLOG_TRASH_DIR, { recursive: true });
+  const trashPath = path.join(BLOG_TRASH_DIR, `${slug}.md`);
+  fs.renameSync(filePath, trashPath);
 
   return json({ success: true, slug });
 };

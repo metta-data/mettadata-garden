@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { auth } from "../../lib/auth";
+import { getSessionUser } from "../../lib/auth";
 import { resolveUser } from "../../lib/roles";
 import {
   slugify,
@@ -13,18 +13,7 @@ import { BLOG_DIR } from "../../lib/paths";
 export const prerender = false;
 
 export const POST: APIRoute = async (context) => {
-  const session = await auth.api.getSession({
-    headers: context.request.headers,
-  });
-  if (!session?.user) {
-    return json({ error: "Not authenticated" }, 401);
-  }
-
-  const user = resolveUser({
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image ?? undefined,
-  });
+  const user = await getSessionUser(context.request.headers, resolveUser);
   if (!user || (user.role !== "admin" && user.role !== "steward")) {
     return json({ error: "Insufficient permissions" }, 403);
   }
@@ -95,20 +84,9 @@ export const POST: APIRoute = async (context) => {
 };
 
 export const GET: APIRoute = async (context) => {
-  const session = await auth.api.getSession({
-    headers: context.request.headers,
-  });
-  if (!session?.user) {
-    return json({ error: "Not authenticated" }, 401);
-  }
-
-  const user = resolveUser({
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image ?? undefined,
-  });
+  const user = await getSessionUser(context.request.headers, resolveUser);
   if (!user) {
-    return json({ error: "No role assigned" }, 403);
+    return json({ error: "Not authenticated" }, 401);
   }
 
   if (!fs.existsSync(BLOG_DIR)) {

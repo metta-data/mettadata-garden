@@ -1,0 +1,11 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { TrashManager } from "../../components/admin/TrashManager";
+
+export const prerender = false;
+---
+
+<AdminLayout title="Trash" active="trash">
+  <h1 class="text-2xl font-bold mb-6">Trash</h1>
+  <TrashManager client:load />
+</AdminLayout>

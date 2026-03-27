@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { auth } from "../../lib/auth";
+import { getSessionUser } from "../../lib/auth";
 import { resolveUser, canAccessGarden } from "../../lib/roles";
 import { isValidGarden, getGardenNames } from "../../lib/gardens";
 import { autoDescription, json } from "../../lib/frontmatter-utils";
@@ -10,21 +10,9 @@ import { GARDENS_DIR } from "../../lib/paths";
 export const prerender = false;
 
 export const POST: APIRoute = async (context) => {
-  // Auth check
-  const session = await auth.api.getSession({
-    headers: context.request.headers,
-  });
-  if (!session?.user) {
-    return json({ error: "Not authenticated" }, 401);
-  }
-
-  const user = resolveUser({
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image ?? undefined,
-  });
+  const user = await getSessionUser(context.request.headers, resolveUser);
   if (!user) {
-    return json({ error: "No role assigned" }, 403);
+    return json({ error: "Not authenticated" }, 401);
   }
 
   const body = await context.request.json();
@@ -158,20 +146,9 @@ export const POST: APIRoute = async (context) => {
 
 // GET - list notes for editing
 export const GET: APIRoute = async (context) => {
-  const session = await auth.api.getSession({
-    headers: context.request.headers,
-  });
-  if (!session?.user) {
-    return json({ error: "Not authenticated" }, 401);
-  }
-
-  const user = resolveUser({
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image ?? undefined,
-  });
+  const user = await getSessionUser(context.request.headers, resolveUser);
   if (!user) {
-    return json({ error: "No role assigned" }, 403);
+    return json({ error: "Not authenticated" }, 401);
   }
 
   // Read all markdown files from each garden

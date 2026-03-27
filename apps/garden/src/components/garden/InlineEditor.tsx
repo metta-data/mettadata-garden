@@ -21,6 +21,7 @@ export function InlineEditor({
   const [content, setContent] = useState(noteContent);
   const [frontmatter, setFrontmatter] = useState<Record<string, any>>(noteFrontmatter);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState("");
   const contentRef = useRef(noteContent);
   contentRef.current = content;
@@ -105,6 +106,27 @@ export function InlineEditor({
     }
   }
 
+  async function handleDelete() {
+    if (!confirm("Move this note to trash?")) return;
+    setDeleting(true);
+    setMessage("");
+    try {
+      const res = await fetch(`/api/notes/${garden}/${noteSlug}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error || "Failed to delete");
+        return;
+      }
+      window.location.href = "/garden";
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="mt-6">
       <PropertiesPanel frontmatter={frontmatter} onChange={setFrontmatter} garden={garden} />
@@ -140,6 +162,15 @@ export function InlineEditor({
             border border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] transition-colors"
         >
           Cancel
+        </button>
+        <div className="flex-1" />
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="rounded-lg px-5 py-2 text-sm font-medium text-red-600
+            border border-red-300 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+        >
+          {deleting ? "Deleting..." : "Delete"}
         </button>
         {message && (
           <span

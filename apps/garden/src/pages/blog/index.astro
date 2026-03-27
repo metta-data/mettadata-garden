@@ -1,20 +1,13 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getCollection } from "astro:content";
-import { auth } from "../../lib/auth";
-import { resolveUser } from "../../lib/roles";
+import { getSessionUser } from "../../lib/auth";
+import { resolveUser, upsertUserOnLogin } from "../../lib/roles";
 
 export const prerender = false;
 
 // Check auth for draft visibility
-const session = await auth.api.getSession({ headers: Astro.request.headers });
-const user = session?.user
-  ? resolveUser({
-      email: session.user.email,
-      name: session.user.name,
-      image: session.user.image ?? undefined,
-    })
-  : null;
+const user = await getSessionUser(Astro.request.headers, resolveUser, upsertUserOnLogin);
 const isAdmin = user?.role === "admin" || user?.role === "steward";
 
 const allPosts = await getCollection("blog");

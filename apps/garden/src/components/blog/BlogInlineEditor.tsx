@@ -18,6 +18,7 @@ export function BlogInlineEditor({
   const [content, setContent] = useState(postContent);
   const [frontmatter, setFrontmatter] = useState<Record<string, any>>(postFrontmatter);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState("");
   const contentRef = useRef(postContent);
   contentRef.current = content;
@@ -119,6 +120,27 @@ export function BlogInlineEditor({
     }
   }
 
+  async function handleDelete() {
+    if (!confirm("Move this post to trash?")) return;
+    setDeleting(true);
+    setMessage("");
+    try {
+      const res = await fetch(`/api/blog/${postSlug}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error || "Failed to delete");
+        return;
+      }
+      window.location.href = "/blog";
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="mt-6">
       {/* Metadata panel */}
@@ -214,6 +236,15 @@ export function BlogInlineEditor({
             border border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] transition-colors"
         >
           Cancel
+        </button>
+        <div className="flex-1" />
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="rounded-lg px-5 py-2 text-sm font-medium text-red-600
+            border border-red-300 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+        >
+          {deleting ? "Deleting..." : "Delete"}
         </button>
         {message && (
           <span
