@@ -9,6 +9,7 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 import { BLOG_DIR } from "../../lib/paths";
+import { queueContentSync } from "../../lib/content-sync";
 
 export const prerender = false;
 
@@ -75,6 +76,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   fs.writeFileSync(filePath, fileContent, "utf-8");
+  queueContentSync();
 
   return json({
     success: true,

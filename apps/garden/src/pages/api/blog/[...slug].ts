@@ -11,6 +11,7 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 import { BLOG_DIR, BLOG_TRASH_DIR } from "../../../lib/paths";
+import { queueContentSync } from "../../../lib/content-sync";
 
 export const prerender = false;
 
@@ -100,6 +101,7 @@ export const PUT: APIRoute = async (context) => {
   const newFileContent = `---\n${newFrontmatter}\n---\n\n${bodyContent}\n`;
 
   fs.writeFileSync(filePath, newFileContent, "utf-8");
+  queueContentSync();
 
   return json({ success: true, slug, frontmatter: existingFm });
 };
@@ -124,6 +126,7 @@ export const DELETE: APIRoute = async (context) => {
   fs.mkdirSync(BLOG_TRASH_DIR, { recursive: true });
   const trashPath = path.join(BLOG_TRASH_DIR, `${slug}.md`);
   fs.renameSync(filePath, trashPath);
+  queueContentSync();
 
   return json({ success: true, slug });
 };

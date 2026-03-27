@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { auth } from "../../../lib/auth";
 import { resolveUser } from "../../../lib/roles";
 import { getPage, getNavPages, getAllPages, writePage, deletePage } from "../../../lib/pages";
+import { queueContentSync } from "../../../lib/content-sync";
 
 export const prerender = false;
 
@@ -60,6 +61,7 @@ export const POST: APIRoute = async (context) => {
     nav_label: nav_label?.trim() || undefined,
     draft: !!draft,
   }, html || "");
+  queueContentSync();
 
   return json({ success: true });
 };
@@ -83,6 +85,7 @@ export const PUT: APIRoute = async (context) => {
     nav_label: nav_label?.trim() || undefined,
     draft: draft !== undefined ? !!draft : existing.meta.draft,
   }, html !== undefined ? html : existing.html);
+  queueContentSync();
 
   return json({ success: true });
 };
@@ -99,5 +102,6 @@ export const DELETE: APIRoute = async (context) => {
   const success = deletePage(slug);
   if (!success) return json({ error: "Page not found" }, 404);
 
+  queueContentSync();
   return json({ success: true });
 };

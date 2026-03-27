@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { auth } from "../../lib/auth";
 import { resolveUser, canAccessGarden } from "../../lib/roles";
 import { getGardenByName } from "../../lib/gardens";
+import { queueContentSync } from "../../lib/content-sync";
 import {
   createDailyNote,
   getJournalEntries,
@@ -48,6 +49,7 @@ export const POST: APIRoute = async (context) => {
 
   const date = dateStr ? new Date(dateStr + "T12:00:00") : new Date();
   const result = createDailyNote(gardenName, garden, date);
+  queueContentSync();
 
   return json({
     success: true,

@@ -31,6 +31,7 @@ FROM node:22-slim AS production
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     rsync \
+    git \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

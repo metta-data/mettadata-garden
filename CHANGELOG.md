@@ -8,6 +8,8 @@
 - **Trash admin page** — View, restore, and permanently delete trashed items at `/admin/trash`.
 - **Dev auto-login** — Automatically sign in as admin during local development (no OAuth needed). Disabled in production builds.
 - **Visitor preview mode** — Append `?preview=visitor` to any URL in dev mode to see the page as an anonymous visitor.
+- **Git-based content backup** — Content changes are automatically committed and pushed to a `content/{instance}` branch on GitHub. Requires `GITHUB_TOKEN`, `GITHUB_REPO`, and `INSTANCE_NAME` env vars on Railway.
+- **Git-based content recovery** — On fresh deploy with empty volume, the entrypoint restores content from the git backup branch before falling back to seed data.
 
 ### Changed
 - **Auth helper consolidation** — Replaced direct `auth.api.getSession()` calls with `getSessionUser()` across all API routes and pages, enabling consistent dev-mode bypass.

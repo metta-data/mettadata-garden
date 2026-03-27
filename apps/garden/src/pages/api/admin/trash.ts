@@ -14,6 +14,7 @@ import {
   NOTES_TRASH_DIR,
   BLOG_TRASH_DIR,
 } from "../../../lib/paths";
+import { queueContentSync } from "../../../lib/content-sync";
 
 export const prerender = false;
 
@@ -120,6 +121,7 @@ export const POST: APIRoute = async (context) => {
       fs.renameSync(trashPath, restorePath);
     }
 
+    queueContentSync();
     return json({ success: true, action: "restored" });
   }
 
@@ -143,6 +145,7 @@ export const POST: APIRoute = async (context) => {
       }
     }
 
+    queueContentSync();
     return json({ success: true, action: "emptied" });
   }
 

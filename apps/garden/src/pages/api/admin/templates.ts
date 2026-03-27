@@ -9,6 +9,7 @@ import path from "node:path";
 export const prerender = false;
 
 import { CONTENT_DIR } from "../../../lib/paths";
+import { queueContentSync } from "../../../lib/content-sync";
 
 function buildTemplateFile(
   name: string,
@@ -145,6 +146,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   fs.writeFileSync(filePath, buildTemplateFile(name, description, properties, content), "utf-8");
+  queueContentSync();
 
   return json({ success: true, filename: slug });
 };
@@ -186,6 +188,7 @@ export const PUT: APIRoute = async (context) => {
   if (fs.existsSync(oldPath) && oldPath !== newPath) {
     fs.unlinkSync(oldPath);
   }
+  queueContentSync();
 
   return json({ success: true });
 };
@@ -207,5 +210,6 @@ export const DELETE: APIRoute = async (context) => {
   }
 
   fs.unlinkSync(filePath);
+  queueContentSync();
   return json({ success: true });
 };
