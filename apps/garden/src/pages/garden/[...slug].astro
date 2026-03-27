@@ -66,6 +66,7 @@ const description = note.data.description || autoDescription(note.body || "");
 
 const isCustomDomain = !!Astro.locals.gardenDomain;
 const gardenDomain = Astro.locals.gardenDomain;
+const userRole = Astro.locals.user?.role;
 
 function autoDescription(markdown: string): string {
   const plain = markdown
@@ -138,7 +139,7 @@ function autoDescription(markdown: string): string {
         client:load
       />
 
-      <div class="prose">
+      <div class="prose" data-role={userRole}>
         <Content />
       </div>
 
@@ -215,7 +216,7 @@ function autoDescription(markdown: string): string {
         client:load
       />
 
-      <div class="prose">
+      <div class="prose" data-role={userRole}>
         <Content />
       </div>
 

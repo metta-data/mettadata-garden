@@ -39,6 +39,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
     // Session resolution failed — continue as anonymous
   }
 
+  // Dev mode: ?preview=visitor to view pages as an anonymous visitor
+  if (import.meta.env.DEV) {
+    const url = new URL(context.request.url);
+    if (url.searchParams.get("preview") === "visitor") {
+      context.locals.user = null;
+    }
+  }
+
   // Custom domain detection: rewrite requests to the appropriate garden
   const host = context.request.headers.get("host")?.split(":")[0];
   const mainDomain = process.env.MAIN_DOMAIN || "localhost";

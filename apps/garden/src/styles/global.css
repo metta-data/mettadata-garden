@@ -145,3 +145,16 @@ body {
   color: var(--color-text-secondary);
   margin-bottom: 1.25em;
 }
+
+/* Masked content — hidden by default, shown for admins/stewards */
+.masked-content {
+  display: none;
+}
+[data-role="admin"] .masked-content,
+[data-role="steward"] .masked-content {
+  display: inline;
+  background: var(--color-bg-secondary);
+  border-left: 2px solid var(--color-accent);
+  padding: 0.1em 0.4em;
+  border-radius: 0.2em;
+}

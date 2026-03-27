@@ -10,7 +10,6 @@ description: An ancient Greek philosophy emphasizing virtue, reason, and emotion
 ---
 
 Stoicism is a school of Hellenistic philosophy founded in Athens by Zeno of Citium in the early 3rd century BC. It teaches the development of self-control and fortitude as a means of overcoming destructive emotions.
-
 ## Core Principles
 
 The Stoics believed that virtue is the highest good and that our emotional reactions to events are within our control, even when the events themselves are not.

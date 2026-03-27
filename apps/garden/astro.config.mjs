@@ -2,7 +2,7 @@ import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
 import node from "@astrojs/node";
 import tailwindcss from "@tailwindcss/vite";
-import { remarkWikilinks } from "@mettadata/remark-garden";
+import { remarkWikilinks, remarkMasked } from "@mettadata/remark-garden";
 import { buildResolutionMapSync } from "./src/lib/build-resolution-map.ts";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -23,6 +23,7 @@ export default defineConfig({
   markdown: {
     remarkPlugins: [
       [remarkWikilinks, { qualified, unqualified }],
+      remarkMasked,
     ],
   },
 });
