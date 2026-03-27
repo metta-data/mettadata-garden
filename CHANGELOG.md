@@ -15,6 +15,12 @@
 - **Auth helper consolidation** — Replaced direct `auth.api.getSession()` calls with `getSessionUser()` across all API routes and pages, enabling consistent dev-mode bypass.
 - **Blog delete** — Changed from permanent delete (`unlinkSync`) to soft-delete (move to `.trash/`).
 
+### Fixed
+- **Private garden visible to admins** — Admin users can now see the private garden in the garden listing, selector dropdown, and all private notes.
+
+### Planned
+- **Image uploads to CDN** — Upload images to Cloudflare R2 or S3 and insert URLs into markdown. Currently images are backed up via git which works for moderate use but won't scale for media-heavy content.
+
 ### Removed
 - Extra sample content — kept one note (`stoicism.md`), one blog post (`building-a-digital-garden.md`), and both templates. Removed empty garden directories (academic, example, professional).
 

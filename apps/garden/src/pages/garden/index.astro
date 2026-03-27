@@ -7,41 +7,44 @@ import { GardenSelector } from "../../components/garden/GardenSelector";
 import { Calendar } from "../../components/garden/Calendar";
 import { TodayButton } from "../../components/garden/TodayButton";
 import { getAllGardenNotes, isPublishable } from "../../lib/garden-collections";
-import { getPublicGardens, isValidGarden, getGardenByName } from "../../lib/gardens";
+import { getPublicGardens, getAllGardens, isValidGarden, getGardenByName } from "../../lib/gardens";
 
 export const prerender = false;
 
 const isCustomDomain = !!Astro.locals.gardenDomain;
 const gardenDomain = Astro.locals.gardenDomain;
+const isAdmin = Astro.locals.user?.role === "admin";
 
 const scope = isCustomDomain ? gardenDomain!.name : (Astro.url.searchParams.get("scope") || undefined);
-const validScope = scope && isValidGarden(scope) && scope !== "private"
+const validScope = scope && isValidGarden(scope) && (isAdmin || scope !== "private")
   ? scope
   : undefined;
 
-const publicGardens = getPublicGardens();
-const publicGardenNames = publicGardens.map((g) => g.name);
+// Admins see all gardens including private; visitors see only public
+const gardens = isAdmin ? getAllGardens() : getPublicGardens();
+const gardenNames = gardens.map((g) => g.name);
 
 const allNoteEntries = await getAllGardenNotes();
 
-const publicNotes = allNoteEntries
-  .filter((n) => isPublishable(n.garden, n.entry))
+// Admins see all notes; visitors see only publishable ones
+const visibleNotes = allNoteEntries
+  .filter((n) => isAdmin || isPublishable(n.garden, n.entry))
   .sort((a, b) => b.entry.data.updated.getTime() - a.entry.data.updated.getTime());
 
 // If a scope is selected, filter to just that garden
-const visibleGardens = validScope ? [validScope] : publicGardenNames;
+const visibleGardens = validScope ? [validScope] : gardenNames;
 const filteredNotes = validScope
-  ? publicNotes.filter((n) => n.garden === validScope)
-  : publicNotes;
+  ? visibleNotes.filter((n) => n.garden === validScope)
+  : visibleNotes;
 
 // Group by garden
-const byGarden: Record<string, typeof publicNotes> = {};
+const byGarden: Record<string, typeof visibleNotes> = {};
 for (const garden of visibleGardens) {
   byGarden[garden] = filteredNotes.filter((n) => n.garden === garden);
 }
 
 // Build garden metadata lookup
-const gardenMeta = Object.fromEntries(publicGardens.map((g) => [g.name, g]));
+const gardenMeta = Object.fromEntries(gardens.map((g) => [g.name, g]));
 
 // Get current garden config for calendar/daily notes
 const scopedGarden = validScope ? getGardenByName(validScope) : null;
@@ -130,13 +133,13 @@ const showTodayButton = scopedGarden?.daily_notes_enabled;
           <h1 class="text-3xl font-bold">Garden</h1>
           <GardenSelector
             current={validScope}
-            gardens={publicGardens.map((g) => ({ name: g.name, display_name: g.display_name, icon: g.icon }))}
+            gardens={gardens.map((g) => ({ name: g.name, display_name: g.display_name, icon: g.icon }))}
             client:load
           />
         </div>
         <div class="flex items-center gap-3">
           <p class="text-[var(--color-text-secondary)]">
-            {filteredNotes.length} notes{validScope ? ` in ${gardenMeta[validScope]?.display_name || validScope}` : ` growing across ${publicGardenNames.length} gardens`}
+            {filteredNotes.length} notes{validScope ? ` in ${gardenMeta[validScope]?.display_name || validScope}` : ` growing across ${gardenNames.length} gardens`}
           </p>
           {showTodayButton && validScope && (
             <TodayButton garden={validScope} client:load />
