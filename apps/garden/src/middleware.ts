@@ -30,7 +30,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
 
     // Dev mode: auto-login as admin when no OAuth session
-    if (!context.locals.user && process.env.NODE_ENV !== "production") {
+    if (!context.locals.user && import.meta.env.DEV) {
       const adminEmail = import.meta.env.ADMIN_EMAIL || process.env.ADMIN_EMAIL || "admin@localhost";
       upsertUserOnLogin({ email: adminEmail, name: "Dev Admin" });
       context.locals.user = resolveUser({ email: adminEmail, name: "Dev Admin" });

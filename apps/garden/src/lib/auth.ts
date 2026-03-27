@@ -47,7 +47,7 @@ export async function getSessionUser(
   }
 
   // Dev mode: auto-login as admin
-  if (process.env.NODE_ENV !== "production") {
+  if (import.meta.env.DEV) {
     const adminEmail = import.meta.env.ADMIN_EMAIL || process.env.ADMIN_EMAIL || "admin@localhost";
     const profile = { email: adminEmail, name: "Dev Admin" };
     upsertUserOnLogin?.(profile);
