@@ -6,7 +6,8 @@ import GardenTag from "../../components/garden/GardenTag.astro";
 import { GardenSelector } from "../../components/garden/GardenSelector";
 import { Calendar } from "../../components/garden/Calendar";
 import { TodayButton } from "../../components/garden/TodayButton";
-import { getAllGardenNotes, isPublishable } from "../../lib/garden-collections";
+import { isPublishable } from "../../lib/garden-collections";
+import { readAllNotes, type NoteInfo } from "../../lib/note-reader";
 import { getPublicGardens, getAllGardens, isValidGarden, getGardenByName } from "../../lib/gardens";
 
 export const prerender = false;
@@ -24,12 +25,12 @@ const validScope = scope && isValidGarden(scope) && (isAdmin || scope !== "priva
 const gardens = isAdmin ? getAllGardens() : getPublicGardens();
 const gardenNames = gardens.map((g) => g.name);
 
-const allNoteEntries = await getAllGardenNotes();
+const allNotes = readAllNotes();
 
 // Admins see all notes; visitors see only publishable ones
-const visibleNotes = allNoteEntries
-  .filter((n) => isAdmin || isPublishable(n.garden, n.entry))
-  .sort((a, b) => b.entry.data.updated.getTime() - a.entry.data.updated.getTime());
+const visibleNotes = allNotes
+  .filter((n) => isAdmin || isPublishable(n.garden, n))
+  .sort((a, b) => b.updated.getTime() - a.updated.getTime());
 
 // If a scope is selected, filter to just that garden
 const visibleGardens = validScope ? [validScope] : gardenNames;
@@ -90,23 +91,23 @@ const showTodayButton = scopedGarden?.daily_notes_enabled;
             <div class="grid gap-2">
               {notes.map((note) => (
                 <a
-                  href={`/${note.noteSlug}`}
+                  href={`/${note.slug}`}
                   class="flex items-center gap-3 rounded-lg border border-[var(--color-border)] px-4 py-3 hover:bg-[var(--color-surface-hover)] transition-colors"
                 >
-                  <GrowthStage stage={note.entry.data.stage} />
+                  <GrowthStage stage={note.stage} />
                   <div class="flex-1 min-w-0">
-                    <span class="font-medium">{note.entry.data.title}</span>
-                    {note.entry.data.description && (
+                    <span class="font-medium">{note.title}</span>
+                    {note.description && (
                       <p class="text-sm text-[var(--color-text-secondary)] truncate">
-                        {note.entry.data.description}
+                        {note.description}
                       </p>
                     )}
                   </div>
                   <time
                     class="text-xs text-[var(--color-text-muted)] whitespace-nowrap"
-                    datetime={note.entry.data.updated.toISOString()}
+                    datetime={note.updated.toISOString()}
                   >
-                    {note.entry.data.updated.toLocaleDateString("en-US", {
+                    {note.updated.toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                     })}
@@ -175,23 +176,23 @@ const showTodayButton = scopedGarden?.daily_notes_enabled;
             <div class="grid gap-2">
               {notes.map((note) => (
                 <a
-                  href={`/garden/${note.garden}/${note.noteSlug}`}
+                  href={`/garden/${note.garden}/${note.slug}`}
                   class="flex items-center gap-3 rounded-lg border border-[var(--color-border)] px-4 py-3 hover:bg-[var(--color-surface-hover)] transition-colors"
                 >
-                  <GrowthStage stage={note.entry.data.stage} />
+                  <GrowthStage stage={note.stage} />
                   <div class="flex-1 min-w-0">
-                    <span class="font-medium">{note.entry.data.title}</span>
-                    {note.entry.data.description && (
+                    <span class="font-medium">{note.title}</span>
+                    {note.description && (
                       <p class="text-sm text-[var(--color-text-secondary)] truncate">
-                        {note.entry.data.description}
+                        {note.description}
                       </p>
                     )}
                   </div>
                   <time
                     class="text-xs text-[var(--color-text-muted)] whitespace-nowrap"
-                    datetime={note.entry.data.updated.toISOString()}
+                    datetime={note.updated.toISOString()}
                   >
-                    {note.entry.data.updated.toLocaleDateString("en-US", {
+                    {note.updated.toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                     })}

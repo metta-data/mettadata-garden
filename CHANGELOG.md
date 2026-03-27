@@ -17,6 +17,7 @@
 
 ### Fixed
 - **Private garden visible to admins** — Admin users can now see the private garden in the garden listing, selector dropdown, and all private notes.
+- **Runtime-created notes now appear in listings** — Garden listing now reads from the filesystem instead of Astro content collections, so notes created via the API appear immediately without a rebuild.
 
 ### Planned
 - **Image uploads to CDN** — Upload images to Cloudflare R2 or S3 and insert URLs into markdown. Currently images are backed up via git which works for moderate use but won't scale for media-heavy content.

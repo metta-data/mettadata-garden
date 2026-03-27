@@ -34,7 +34,8 @@ export async function getGardenNotes(garden: string): Promise<GardenEntry[]> {
 
 export function isPublishable(
   garden: string,
-  note: { data: { publish: boolean } }
+  note: { data?: { publish: boolean }; publish?: boolean }
 ): boolean {
-  return garden !== "private" && note.data.publish;
+  const publish = note.data?.publish ?? note.publish ?? false;
+  return garden !== "private" && publish;
 }
