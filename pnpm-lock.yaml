@@ -80,12 +80,24 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.4(react@19.2.4)
+      rehype-stringify:
+        specifier: ^10.0.1
+        version: 10.0.1
+      remark-parse:
+        specifier: ^11.0.0
+        version: 11.0.0
+      remark-rehype:
+        specifier: ^11.1.2
+        version: 11.1.2
       tailwindcss:
         specifier: ^4.0.0
         version: 4.2.2
       tiptap-markdown:
         specifier: ^0.8.0
         version: 0.8.10(@tiptap/core@2.27.2(@tiptap/pm@2.27.2))
+      unified:
+        specifier: ^11.0.5
+        version: 11.0.5
     devDependencies:
       '@types/better-sqlite3':
         specifier: ^7.6.0

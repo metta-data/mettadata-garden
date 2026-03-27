@@ -1,14 +1,18 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import GardenSiteLayout from "../../layouts/GardenSiteLayout.astro";
-import { getCollection, getEntry, render } from "astro:content";
 import GrowthStage from "../../components/garden/GrowthStage.astro";
 import GardenTag from "../../components/garden/GardenTag.astro";
 import BackLinks from "../../components/garden/BackLinks.astro";
 import { SeedButton } from "../../components/garden/SeedButton";
 import { InlineEditor } from "../../components/garden/InlineEditor";
 import { isValidGarden } from "../../lib/gardens";
-import { getAllGardenNotes } from "../../lib/garden-collections";
+import { readAllNotes } from "../../lib/note-reader";
+import { renderMarkdown } from "../../lib/render-markdown";
+import { extractFrontmatter, parseFrontmatter } from "../../lib/frontmatter-utils";
+import fs from "node:fs";
+import path from "node:path";
+import { GARDENS_DIR } from "../../lib/paths";
 
 export const prerender = false;
 
@@ -28,23 +32,12 @@ if (segments.length >= 2 && isValidGarden(segments[0])) {
   noteSlug = segments.slice(1).join("/");
 } else {
   // Legacy URL: single slug without garden prefix
-  // Search all collections for this note and redirect
-  const allNotes = await getAllGardenNotes();
-  const match = allNotes.find(
-    (n) => n.noteSlug === slug || n.entry.id.endsWith(`/${slug}`)
-  );
+  // Search all notes for this slug and redirect
+  const allNotes = readAllNotes();
+  const match = allNotes.find((n) => n.slug === slug);
   if (match) {
-    return Astro.redirect(`/garden/${match.garden}/${match.noteSlug}`);
+    return Astro.redirect(`/garden/${match.garden}/${match.slug}`);
   }
-  return new Response("Note not found", { status: 404 });
-}
-
-// Fetch note from the unified gardens collection
-// Entry ID format: "garden/notes/slug"
-const entryId = `${garden}/notes/${noteSlug}`;
-const note = await getEntry("gardens", entryId);
-
-if (!note) {
   return new Response("Note not found", { status: 404 });
 }
 
@@ -58,11 +51,40 @@ if (garden === "private") {
   }
 }
 
-const { Content } = await render(note);
-const qualifiedNoteId = `${garden}/${note.id}`;
+// Read note from filesystem (works for both build-time and runtime-created notes)
+const notePath = path.join(GARDENS_DIR, garden, "notes", `${noteSlug}.md`);
+if (!fs.existsSync(notePath)) {
+  return new Response("Note not found", { status: 404 });
+}
+const fileContent = fs.readFileSync(notePath, "utf-8");
+const extracted = extractFrontmatter(fileContent);
+if (!extracted) {
+  return new Response("Invalid note format", { status: 400 });
+}
+const fm = parseFrontmatter(extracted.raw);
+const renderedHtml = await renderMarkdown(extracted.body);
+const noteBody = extracted.body;
+
+const parseDate = (v: any) => v ? new Date(String(v)) : new Date();
+const parseArray = (v: any) => Array.isArray(v) ? v : (typeof v === "string" && v ? v.split(",").map((s: string) => s.trim()) : []);
+
+const noteData = {
+  title: String(fm.title || noteSlug),
+  description: fm.description ? String(fm.description) : undefined,
+  stage: String(fm.stage || "seed"),
+  tags: parseArray(fm.tags),
+  created: parseDate(fm.created),
+  updated: parseDate(fm.updated),
+  publish: fm.publish === true || fm.publish === "true",
+  seeded: fm.seeded === true || fm.seeded === "true",
+  seedSource: fm.seedSource ? String(fm.seedSource) : undefined,
+  aliases: parseArray(fm.aliases),
+};
+
+const qualifiedNoteId = `${garden}/notes/${noteSlug}`;
 
 // Auto-generate description from body if not set
-const description = note.data.description || autoDescription(note.body || "");
+const description = noteData.description || autoDescription(noteBody);
 
 const isCustomDomain = !!Astro.locals.gardenDomain;
 const gardenDomain = Astro.locals.gardenDomain;
@@ -85,7 +107,7 @@ function autoDescription(markdown: string): string {
 
 {isCustomDomain && gardenDomain ? (
   <GardenSiteLayout
-    title={note.data.title}
+    title={noteData.title}
     description={description}
     gardenName={gardenDomain.name}
     gardenIcon={gardenDomain.icon}
@@ -94,9 +116,9 @@ function autoDescription(markdown: string): string {
     <article class="max-w-3xl mx-auto">
       <header class="mb-8">
         <div class="flex items-center gap-2 mb-3">
-          <GrowthStage stage={note.data.stage} />
+          <GrowthStage stage={noteData.stage} />
         </div>
-        <h1 class="text-3xl font-bold mb-2">{note.data.title}</h1>
+        <h1 class="text-3xl font-bold mb-2">{noteData.title}</h1>
         {description && (
           <p class="text-lg text-[var(--color-text-secondary)]">
             {description}
@@ -105,7 +127,7 @@ function autoDescription(markdown: string): string {
         <div class="flex items-center gap-4 mt-3 text-sm text-[var(--color-text-muted)]">
           <span>
             Created{" "}
-            {note.data.created.toLocaleDateString("en-US", {
+            {noteData.created.toLocaleDateString("en-US", {
               year: "numeric",
               month: "long",
               day: "numeric",
@@ -113,16 +135,16 @@ function autoDescription(markdown: string): string {
           </span>
           <span>
             Updated{" "}
-            {note.data.updated.toLocaleDateString("en-US", {
+            {noteData.updated.toLocaleDateString("en-US", {
               year: "numeric",
               month: "long",
               day: "numeric",
             })}
           </span>
         </div>
-        {note.data.tags.length > 0 && (
+        {noteData.tags.length > 0 && (
           <div class="flex gap-1.5 mt-3">
-            {note.data.tags.map((tag) => (
+            {noteData.tags.map((tag) => (
               <span class="rounded-md bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs text-[var(--color-text-secondary)]">
                 #{tag}
               </span>
@@ -133,31 +155,31 @@ function autoDescription(markdown: string): string {
 
       <SeedButton
         noteSlug={`${garden}/${noteSlug}`}
-        noteTitle={note.data.title}
-        isSeeded={note.data.seeded}
+        noteTitle={noteData.title}
+        isSeeded={noteData.seeded}
         garden={garden}
         client:load
       />
 
       <div class="prose" data-role={userRole}>
-        <Content />
+        <Fragment set:html={renderedHtml} />
       </div>
 
       <InlineEditor
         noteSlug={`${garden}/${noteSlug}`}
-        noteContent={note.body || ""}
+        noteContent={noteBody}
         garden={garden}
         noteFrontmatter={{
-          title: note.data.title,
-          aliases: note.data.aliases || [],
-          stage: note.data.stage,
-          tags: note.data.tags || [],
-          created: note.data.created?.toISOString?.()?.split("T")[0] || "",
-          updated: note.data.updated?.toISOString?.()?.split("T")[0] || "",
-          publish: note.data.publish,
-          description: note.data.description || "",
-          seeded: note.data.seeded,
-          ...(note.data.seedSource ? { seedSource: note.data.seedSource } : {}),
+          title: noteData.title,
+          aliases: noteData.aliases || [],
+          stage: noteData.stage,
+          tags: noteData.tags || [],
+          created: noteData.created?.toISOString?.()?.split("T")[0] || "",
+          updated: noteData.updated?.toISOString?.()?.split("T")[0] || "",
+          publish: noteData.publish,
+          description: noteData.description || "",
+          seeded: noteData.seeded,
+          ...(noteData.seedSource ? { seedSource: noteData.seedSource } : {}),
         }}
         client:load
       />
@@ -166,14 +188,14 @@ function autoDescription(markdown: string): string {
     </article>
   </GardenSiteLayout>
 ) : (
-  <BaseLayout title={note.data.title} description={description}>
+  <BaseLayout title={noteData.title} description={description}>
     <article class="max-w-3xl mx-auto">
       <header class="mb-8">
         <div class="flex items-center gap-2 mb-3">
-          <GrowthStage stage={note.data.stage} />
+          <GrowthStage stage={noteData.stage} />
           {garden !== "private" && <GardenTag garden={garden} />}
         </div>
-        <h1 class="text-3xl font-bold mb-2">{note.data.title}</h1>
+        <h1 class="text-3xl font-bold mb-2">{noteData.title}</h1>
         {description && (
           <p class="text-lg text-[var(--color-text-secondary)]">
             {description}
@@ -182,7 +204,7 @@ function autoDescription(markdown: string): string {
         <div class="flex items-center gap-4 mt-3 text-sm text-[var(--color-text-muted)]">
           <span>
             Created{" "}
-            {note.data.created.toLocaleDateString("en-US", {
+            {noteData.created.toLocaleDateString("en-US", {
               year: "numeric",
               month: "long",
               day: "numeric",
@@ -190,16 +212,16 @@ function autoDescription(markdown: string): string {
           </span>
           <span>
             Updated{" "}
-            {note.data.updated.toLocaleDateString("en-US", {
+            {noteData.updated.toLocaleDateString("en-US", {
               year: "numeric",
               month: "long",
               day: "numeric",
             })}
           </span>
         </div>
-        {note.data.tags.length > 0 && (
+        {noteData.tags.length > 0 && (
           <div class="flex gap-1.5 mt-3">
-            {note.data.tags.map((tag) => (
+            {noteData.tags.map((tag) => (
               <span class="rounded-md bg-[var(--color-bg-secondary)] px-2 py-0.5 text-xs text-[var(--color-text-secondary)]">
                 #{tag}
               </span>
@@ -210,31 +232,31 @@ function autoDescription(markdown: string): string {
 
       <SeedButton
         noteSlug={`${garden}/${noteSlug}`}
-        noteTitle={note.data.title}
-        isSeeded={note.data.seeded}
+        noteTitle={noteData.title}
+        isSeeded={noteData.seeded}
         garden={garden}
         client:load
       />
 
       <div class="prose" data-role={userRole}>
-        <Content />
+        <Fragment set:html={renderedHtml} />
       </div>
 
       <InlineEditor
         noteSlug={`${garden}/${noteSlug}`}
-        noteContent={note.body || ""}
+        noteContent={noteBody}
         garden={garden}
         noteFrontmatter={{
-          title: note.data.title,
-          aliases: note.data.aliases || [],
-          stage: note.data.stage,
-          tags: note.data.tags || [],
-          created: note.data.created?.toISOString?.()?.split("T")[0] || "",
-          updated: note.data.updated?.toISOString?.()?.split("T")[0] || "",
-          publish: note.data.publish,
-          description: note.data.description || "",
-          seeded: note.data.seeded,
-          ...(note.data.seedSource ? { seedSource: note.data.seedSource } : {}),
+          title: noteData.title,
+          aliases: noteData.aliases || [],
+          stage: noteData.stage,
+          tags: noteData.tags || [],
+          created: noteData.created?.toISOString?.()?.split("T")[0] || "",
+          updated: noteData.updated?.toISOString?.()?.split("T")[0] || "",
+          publish: noteData.publish,
+          description: noteData.description || "",
+          seeded: noteData.seeded,
+          ...(noteData.seedSource ? { seedSource: noteData.seedSource } : {}),
         }}
         client:load
       />
