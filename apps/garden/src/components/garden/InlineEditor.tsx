@@ -27,6 +27,7 @@ export function InlineEditor({
   contentRef.current = content;
   const frontmatterRef = useRef(noteFrontmatter);
   frontmatterRef.current = frontmatter;
+  const currentSlugRef = useRef(noteSlug);
 
   useEffect(() => {
     fetch("/api/me")
@@ -36,7 +37,7 @@ export function InlineEditor({
   }, []);
 
   const saveContent = useCallback(async () => {
-    await fetch(`/api/notes/${noteSlug}`, {
+    await fetch(`/api/notes/${currentSlugRef.current}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -44,7 +45,7 @@ export function InlineEditor({
         frontmatter: frontmatterRef.current,
       }),
     });
-  }, [noteSlug]);
+  }, []);
 
   const canEdit =
     user?.role === "admin" ||
@@ -84,7 +85,7 @@ export function InlineEditor({
     setMessage("");
 
     try {
-      const res = await fetch(`/api/notes/${noteSlug}`, {
+      const res = await fetch(`/api/notes/${currentSlugRef.current}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content, frontmatter }),
@@ -97,8 +98,17 @@ export function InlineEditor({
         return;
       }
 
-      setMessage("Saved!");
-      setTimeout(() => window.location.reload(), 1000);
+      if (data.renamed) {
+        // Update slug ref so auto-save uses the new path
+        currentSlugRef.current = `${data.garden}/${data.slug}`;
+        setMessage("Renamed & saved! Redirecting...");
+        setTimeout(() => {
+          window.location.href = `/garden/${data.garden}/${data.slug}`;
+        }, 1000);
+      } else {
+        setMessage("Saved!");
+        setTimeout(() => window.location.reload(), 1000);
+      }
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Failed to save");
     } finally {

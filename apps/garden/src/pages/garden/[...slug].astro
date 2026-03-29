@@ -9,7 +9,7 @@ import { InlineEditor } from "../../components/garden/InlineEditor";
 import { isValidGarden } from "../../lib/gardens";
 import { readAllNotes } from "../../lib/note-reader";
 import { renderMarkdown } from "../../lib/render-markdown";
-import { extractFrontmatter, parseFrontmatter } from "../../lib/frontmatter-utils";
+import { extractFrontmatter, parseFrontmatter, slugify } from "../../lib/frontmatter-utils";
 import fs from "node:fs";
 import path from "node:path";
 import { GARDENS_DIR } from "../../lib/paths";
@@ -54,6 +54,14 @@ if (garden === "private") {
 // Read note from filesystem (works for both build-time and runtime-created notes)
 const notePath = path.join(GARDENS_DIR, garden, "notes", `${noteSlug}.md`);
 if (!fs.existsSync(notePath)) {
+  // Try to find a note whose aliases match this slug (handles renames)
+  const allNotes = readAllNotes().filter((n) => n.garden === garden);
+  const aliasMatch = allNotes.find((n) =>
+    n.aliases.some((a) => slugify(a) === noteSlug)
+  );
+  if (aliasMatch) {
+    return Astro.redirect(`/garden/${garden}/${aliasMatch.slug}`, 301);
+  }
   return new Response("Note not found", { status: 404 });
 }
 const fileContent = fs.readFileSync(notePath, "utf-8");

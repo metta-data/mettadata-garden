@@ -6,6 +6,7 @@ import {
   extractFrontmatter,
   parseFrontmatter,
   serializeFrontmatter,
+  slugify,
   json,
 } from "../../../lib/frontmatter-utils";
 import fs from "node:fs";
@@ -79,6 +80,45 @@ export const PUT: APIRoute = async (context) => {
   // Remove gardens key if present (legacy cleanup)
   delete existingFm.gardens;
 
+  // Detect title-driven rename
+  const newSlug = slugify(existingFm.title);
+  // Extract just the filename slug (last segment), preserving folder path
+  const pathParts = noteSlug.split("/");
+  const currentFileSlug = pathParts[pathParts.length - 1];
+  const folderPrefix = pathParts.slice(0, -1).join("/");
+  const renamed = newSlug !== currentFileSlug;
+
+  if (renamed) {
+    // Add old title to aliases so old URLs and wikilinks still resolve
+    const aliases: string[] = Array.isArray(existingFm.aliases) ? existingFm.aliases : [];
+    const oldTitle = String(parseFrontmatter(extracted.raw).title || "");
+    if (oldTitle && !aliases.includes(oldTitle)) {
+      aliases.push(oldTitle);
+      existingFm.aliases = aliases;
+    }
+
+    // Check for slug collision
+    const newNoteSlug = folderPrefix ? `${folderPrefix}/${newSlug}` : newSlug;
+    const newPath = path.join(GARDENS_DIR, garden, "notes", `${newNoteSlug}.md`);
+    if (fs.existsSync(newPath)) {
+      return json({ error: "A note with that slug already exists" }, 409);
+    }
+
+    // Serialize and write to new path, then remove old file
+    const newFrontmatter = serializeFrontmatter(existingFm);
+    const bodyContent = content !== undefined ? (content || "").trim() : extracted.body;
+    const newFileContent = `---\n${newFrontmatter}\n---\n\n${bodyContent}\n`;
+
+    // Ensure target directory exists (for nested folders)
+    fs.mkdirSync(path.dirname(newPath), { recursive: true });
+    fs.writeFileSync(newPath, newFileContent, "utf-8");
+    fs.unlinkSync(notePath);
+    queueContentSync();
+
+    return json({ success: true, slug: newNoteSlug, garden, renamed: true, frontmatter: existingFm });
+  }
+
+  // No rename — update in place
   // Serialize frontmatter back to YAML
   const newFrontmatter = serializeFrontmatter(existingFm);
 
